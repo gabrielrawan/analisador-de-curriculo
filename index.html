@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analisador Inteligente de Currículo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: "#0b1220",
+            panel: "#121a2b",
+            panelSoft: "#1b2439",
+            accent: "#22c55e",
+            accent2: "#06b6d4",
+          },
+          boxShadow: {
+            glow: "0 0 0 1px rgba(34,197,94,0.2), 0 10px 30px rgba(34,197,94,0.12)",
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body class="bg-bg text-slate-100 min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-10 md:py-14">
+    <header class="mb-10">
+      <div class="inline-flex items-center gap-2 rounded-full bg-panelSoft px-3 py-1 text-xs text-cyan-300 border border-cyan-500/30">
+        Ferramenta SaaS de análise de currículo
+      </div>
+      <h1 class="mt-4 text-3xl md:text-5xl font-bold leading-tight">
+        Analisador Inteligente de Currículo
+      </h1>
+      <p class="mt-3 text-slate-300 max-w-3xl">
+        Faça upload do seu currículo em PDF ou cole o texto, descreva a vaga desejada e receba
+        uma análise estratégica com score de compatibilidade e melhorias práticas.
+      </p>
+    </header>
+
+    <main class="grid lg:grid-cols-5 gap-6">
+      <section class="lg:col-span-2 bg-panel border border-slate-700 rounded-2xl p-5 md:p-6 shadow-glow">
+        <h2 class="text-xl font-semibold mb-4">Entrada de dados</h2>
+
+        <div class="space-y-5">
+          <div>
+            <p class="text-sm text-slate-300 mb-2">1) Escolha uma opção</p>
+            <div class="grid sm:grid-cols-2 gap-3">
+              <button id="btnPdf" class="w-full rounded-lg border border-slate-600 bg-panelSoft px-4 py-3 text-sm font-medium hover:border-cyan-400 transition">
+                Upload de PDF
+              </button>
+              <button id="btnTexto" class="w-full rounded-lg border border-slate-600 bg-panelSoft px-4 py-3 text-sm font-medium hover:border-cyan-400 transition">
+                Colar texto
+              </button>
+            </div>
+          </div>
+
+          <div id="blocoPdf" class="space-y-2">
+            <label for="pdfInput" class="text-sm text-slate-300 block">Currículo em PDF</label>
+            <input id="pdfInput" type="file" accept=".pdf" class="block w-full text-sm text-slate-200 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-cyan-600 file:text-white hover:file:bg-cyan-500 transition" />
+            <p id="pdfStatus" class="text-xs text-slate-400">Nenhum arquivo selecionado.</p>
+          </div>
+
+          <div id="blocoTexto" class="space-y-2 hidden">
+            <label for="curriculoTexto" class="text-sm text-slate-300 block">Texto do currículo</label>
+            <textarea id="curriculoTexto" rows="7" class="w-full rounded-lg border border-slate-600 bg-panelSoft px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" placeholder="Cole aqui o conteúdo do currículo..."></textarea>
+          </div>
+
+          <div class="space-y-2">
+            <label for="vagaTexto" class="text-sm text-slate-300 block">2) Descreva a vaga desejada</label>
+            <textarea id="vagaTexto" rows="6" class="w-full rounded-lg border border-slate-600 bg-panelSoft px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Ex: Desenvolvedor Front-end com React, TypeScript, testes, consumo de APIs e trabalho em equipe..."></textarea>
+          </div>
+
+          <button id="analisarBtn" class="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-4 text-base font-bold tracking-wide shadow-lg hover:opacity-95 transition">
+            Analisar Currículo
+          </button>
+        </div>
+      </section>
+
+      <section class="lg:col-span-3 bg-panel border border-slate-700 rounded-2xl p-5 md:p-6">
+        <div id="placeholder" class="h-full min-h-[340px] grid place-items-center text-center text-slate-400">
+          <div>
+            <div class="mx-auto mb-4 h-14 w-14 rounded-full bg-panelSoft grid place-items-center border border-slate-700">
+              <span class="text-2xl">AI</span>
+            </div>
+            <p class="text-lg">Os resultados aparecerão aqui após a análise.</p>
+          </div>
+        </div>
+
+        <div id="loading" class="hidden min-h-[340px] grid place-items-center">
+          <div class="text-center">
+            <div class="mx-auto mb-4 h-12 w-12 rounded-full border-4 border-cyan-400/30 border-t-cyan-400 animate-spin"></div>
+            <p class="font-medium">Analisando currículo...</p>
+            <p class="text-sm text-slate-400 mt-1">Comparando habilidades, experiência e palavras-chave da vaga.</p>
+          </div>
+        </div>
+
+        <div id="resultado" class="hidden space-y-6">
+          <div class="rounded-xl bg-panelSoft border border-slate-700 p-4">
+            <div class="flex items-end justify-between gap-3 mb-2">
+              <h3 class="font-semibold">Score de compatibilidade</h3>
+              <p class="text-2xl font-bold"><span id="scoreValor">0</span>%</p>
+            </div>
+            <div class="h-3 w-full rounded-full bg-slate-700 overflow-hidden">
+              <div id="scoreBarra" class="h-full w-0 bg-gradient-to-r from-red-500 via-amber-400 to-emerald-500 transition-all duration-700"></div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-xl bg-panelSoft border border-slate-700 p-4">
+              <h4 class="font-semibold text-emerald-300 mb-2">Pontos fortes</h4>
+              <ul id="pontosFortes" class="space-y-2 text-sm text-slate-200"></ul>
+            </div>
+            <div class="rounded-xl bg-panelSoft border border-slate-700 p-4">
+              <h4 class="font-semibold text-rose-300 mb-2">Pontos fracos / O que falta</h4>
+              <ul id="pontosFracos" class="space-y-2 text-sm text-slate-200"></ul>
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-panelSoft border border-slate-700 p-4">
+            <h4 class="font-semibold text-cyan-300 mb-2">Sugestões específicas de melhoria</h4>
+            <ul id="sugestoes" class="space-y-2 text-sm text-slate-200"></ul>
+          </div>
+
+          <div class="rounded-xl bg-panelSoft border border-slate-700 p-4">
+            <h4 class="font-semibold text-amber-300 mb-2">Palavras-chave recomendadas</h4>
+            <div id="keywords" class="flex flex-wrap gap-2"></div>
+          </div>
+
+          <div class="rounded-xl bg-panelSoft border border-slate-700 p-4">
+            <h4 class="font-semibold text-cyan-200 mb-2">Versão melhorada de trechos do currículo</h4>
+            <div id="trechosMelhorados" class="space-y-3 text-sm"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const btnPdf = document.getElementById("btnPdf");
+    const btnTexto = document.getElementById("btnTexto");
+    const blocoPdf = document.getElementById("blocoPdf");
+    const blocoTexto = document.getElementById("blocoTexto");
+    const pdfInput = document.getElementById("pdfInput");
+    const pdfStatus = document.getElementById("pdfStatus");
+    const curriculoTexto = document.getElementById("curriculoTexto");
+    const vagaTexto = document.getElementById("vagaTexto");
+    const analisarBtn = document.getElementById("analisarBtn");
+    const placeholder = document.getElementById("placeholder");
+    const loading = document.getElementById("loading");
+    const resultado = document.getElementById("resultado");
+
+    const scoreValor = document.getElementById("scoreValor");
+    const scoreBarra = document.getElementById("scoreBarra");
+    const pontosFortes = document.getElementById("pontosFortes");
+    const pontosFracos = document.getElementById("pontosFracos");
+    const sugestoes = document.getElementById("sugestoes");
+    const keywords = document.getElementById("keywords");
+    const trechosMelhorados = document.getElementById("trechosMelhorados");
+
+    let modoEntrada = "pdf";
+    let textoExtraidoPdf = "";
+
+    const stopWords = new Set([
+      "de", "da", "do", "das", "dos", "para", "com", "sem", "uma", "um", "e", "ou", "em", "no", "na",
+      "nos", "nas", "a", "o", "as", "os", "por", "que", "como", "mais", "menos", "ser", "estar"
+    ]);
+
+    const palavrasComunsVaga = [
+      "react", "typescript", "javascript", "python", "sql", "excel", "power bi", "comunicação",
+      "liderança", "gestão", "vendas", "negociação", "crm", "api", "git", "scrum", "kanban",
+      "atendimento", "planejamento", "análise de dados", "resolução de problemas", "cloud"
+    ];
+
+    function toggleModo(novoModo) {
+      modoEntrada = novoModo;
+      const isPdf = novoModo === "pdf";
+      blocoPdf.classList.toggle("hidden", !isPdf);
+      blocoTexto.classList.toggle("hidden", isPdf);
+      btnPdf.className = `w-full rounded-lg border px-4 py-3 text-sm font-medium transition ${
+        isPdf ? "border-cyan-400 bg-cyan-500/10" : "border-slate-600 bg-panelSoft hover:border-cyan-400"
+      }`;
+      btnTexto.className = `w-full rounded-lg border px-4 py-3 text-sm font-medium transition ${
+        !isPdf ? "border-cyan-400 bg-cyan-500/10" : "border-slate-600 bg-panelSoft hover:border-cyan-400"
+      }`;
+    }
+
+    btnPdf.addEventListener("click", () => toggleModo("pdf"));
+    btnTexto.addEventListener("click", () => toggleModo("texto"));
+    toggleModo("pdf");
+
+    pdfInput.addEventListener("change", async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        pdfStatus.textContent = "Nenhum arquivo selecionado.";
+        textoExtraidoPdf = "";
+        return;
+      }
+      pdfStatus.textContent = `Arquivo selecionado: ${file.name}. Extraindo texto...`;
+      try {
+        textoExtraidoPdf = await extrairTextoPdf(file);
+        const tamanho = textoExtraidoPdf.trim().length;
+        pdfStatus.textContent = tamanho > 0
+          ? `${file.name} carregado com sucesso (${tamanho} caracteres extraídos).`
+          : `${file.name} carregado, mas o texto parece vazio.`;
+      } catch (error) {
+        textoExtraidoPdf = "";
+        pdfStatus.textContent = "Falha ao ler o PDF. Tente outro arquivo ou use o modo texto.";
+      }
+    });
+
+    async function extrairTextoPdf(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let texto = "";
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item) => item.str).join(" ");
+        texto += pageText + "\n";
+      }
+      return texto;
+    }
+
+    function normalizarTexto(texto) {
+      return texto
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s#.+-]/g, " ");
+    }
+
+    function extrairKeywords(vaga) {
+      const vagaNorm = normalizarTexto(vaga);
+      const tokens = vagaNorm.split(/\s+/).filter((t) => t.length > 2 && !stopWords.has(t));
+      const frequencia = {};
+      tokens.forEach((t) => {
+        frequencia[t] = (frequencia[t] || 0) + 1;
+      });
+
+      const topTokens = Object.entries(frequencia)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([token]) => token);
+
+      const termosPadraoEncontrados = palavrasComunsVaga.filter((termo) => vagaNorm.includes(termo));
+      const combinadas = [...new Set([...termosPadraoEncontrados, ...topTokens])];
+      return combinadas.slice(0, 12);
+    }
+
+    function gerarAnalise(curriculo, vaga) {
+      const curriculoNorm = normalizarTexto(curriculo);
+      const vagaNorm = normalizarTexto(vaga);
+      const keywordsVaga = extrairKeywords(vaga);
+
+      const presentes = keywordsVaga.filter((kw) => curriculoNorm.includes(kw));
+      const faltando = keywordsVaga.filter((kw) => !curriculoNorm.includes(kw));
+
+      const cobertura = keywordsVaga.length ? presentes.length / keywordsVaga.length : 0.3;
+      const bonusExperiencia = /\b(anos?|experience|experiencia)\b/.test(curriculoNorm) ? 0.08 : 0;
+      const bonusResultados = /\b(aumentei|reduzi|cresci|melhorei|otimizei|%\b|kpi|meta)\b/.test(curriculoNorm) ? 0.1 : 0;
+      const penalidadeCurto = curriculo.trim().length < 450 ? 0.12 : 0;
+      const similaridadeTitulo = vagaNorm.split(/\s+/).some((p) => curriculoNorm.includes(p)) ? 0.05 : 0;
+
+      let score = Math.round((cobertura + bonusExperiencia + bonusResultados + similaridadeTitulo - penalidadeCurto) * 100);
+      score = Math.max(35, Math.min(98, score));
+
+      const fortes = [];
+      if (presentes.length > 0) {
+        fortes.push(`Boa aderência de palavras-chave: ${presentes.slice(0, 5).join(", ")}.`);
+      }
+      if (bonusExperiencia > 0) {
+        fortes.push("Menção de experiência profissional, o que reforça senioridade e contexto prático.");
+      }
+      if (bonusResultados > 0) {
+        fortes.push("Há indícios de foco em resultados, algo valorizado por recrutadores.");
+      }
+      if (curriculo.trim().length >= 700) {
+        fortes.push("Nível de detalhe adequado para demonstrar histórico e responsabilidades.");
+      }
+      if (fortes.length === 0) {
+        fortes.push("Estrutura inicial presente, com potencial de ajuste para melhorar impacto.");
+      }
+
+      const fracos = [];
+      if (faltando.length > 0) {
+        fracos.push(`Termos relevantes da vaga não encontrados: ${faltando.slice(0, 6).join(", ")}.`);
+      }
+      if (curriculo.trim().length < 450) {
+        fracos.push("Conteúdo curto, com pouca profundidade sobre resultados e projetos.");
+      }
+      if (!/\b(projeto|project|portfolio)\b/.test(curriculoNorm)) {
+        fracos.push("Pouca evidência de projetos concretos para comprovar habilidades.");
+      }
+      if (!/\b(certifica|curso|formacao|graduacao)\b/.test(curriculoNorm)) {
+        fracos.push("Formação e capacitações não estão claramente destacadas.");
+      }
+
+      const dicas = [
+        "Reescreva experiências com foco em impacto: ação + contexto + resultado mensurável.",
+        "Inclua um resumo profissional de 3 a 4 linhas alinhado com a vaga desejada.",
+        "Adapte o currículo para cada vaga, priorizando palavras-chave do anúncio.",
+      ];
+      if (faltando.length) {
+        dicas.push(`Inclua, quando verdadeiro para seu perfil, estas competências: ${faltando.slice(0, 5).join(", ")}.`);
+      }
+      if (!/\b(git|github|linkedin)\b/.test(curriculoNorm)) {
+        dicas.push("Adicione links de portfólio, GitHub ou LinkedIn para aumentar credibilidade.");
+      }
+
+      const trechos = [
+        {
+          original: "Responsável por atividades no setor e suporte da equipe.",
+          melhorado: "Atuei no suporte operacional do setor, priorizando demandas críticas e colaborando com a equipe para elevar a eficiência do fluxo em 25%.",
+        },
+        {
+          original: "Trabalhei com atendimento e vendas.",
+          melhorado: "Conduzi atendimento consultivo e negociações comerciais, contribuindo para aumento de 18% na taxa de conversão de clientes.",
+        },
+        {
+          original: "Tenho conhecimento em desenvolvimento web.",
+          melhorado: "Desenvolvi interfaces web responsivas com foco em performance e usabilidade, utilizando boas práticas de arquitetura e integração com APIs.",
+        },
+      ];
+
+      return { score, fortes, fracos, dicas, keywordsVaga, trechos };
+    }
+
+    function renderLista(elemento, itens) {
+      elemento.innerHTML = "";
+      itens.forEach((item) => {
+        const li = document.createElement("li");
+        li.className = "flex gap-2";
+        li.innerHTML = `<span class="mt-1 h-2 w-2 rounded-full bg-cyan-400 shrink-0"></span><span>${item}</span>`;
+        elemento.appendChild(li);
+      });
+    }
+
+    function renderResultado(analise) {
+      scoreValor.textContent = analise.score;
+      scoreBarra.style.width = `${analise.score}%`;
+
+      renderLista(pontosFortes, analise.fortes);
+      renderLista(pontosFracos, analise.fracos);
+      renderLista(sugestoes, analise.dicas);
+
+      keywords.innerHTML = "";
+      analise.keywordsVaga.forEach((kw) => {
+        const span = document.createElement("span");
+        span.className = "px-3 py-1 text-xs rounded-full bg-cyan-500/15 border border-cyan-400/40 text-cyan-200";
+        span.textContent = kw;
+        keywords.appendChild(span);
+      });
+
+      trechosMelhorados.innerHTML = "";
+      analise.trechos.forEach((trecho) => {
+        const card = document.createElement("div");
+        card.className = "rounded-lg border border-slate-700 bg-slate-900/40 p-3";
+        card.innerHTML = `
+          <p class="text-slate-400 mb-1"><strong>Original:</strong> ${trecho.original}</p>
+          <p class="text-emerald-300"><strong>Melhorado:</strong> ${trecho.melhorado}</p>
+        `;
+        trechosMelhorados.appendChild(card);
+      });
+    }
+
+    analisarBtn.addEventListener("click", async () => {
+      const curriculo = modoEntrada === "pdf" ? textoExtraidoPdf : curriculoTexto.value;
+      const vaga = vagaTexto.value.trim();
+
+      if (!curriculo || curriculo.trim().length < 80) {
+        alert("Adicione um currículo válido (PDF ou texto com conteúdo suficiente).");
+        return;
+      }
+      if (!vaga || vaga.length < 20) {
+        alert("Descreva melhor a vaga desejada para uma análise mais precisa.");
+        return;
+      }
+
+      placeholder.classList.add("hidden");
+      resultado.classList.add("hidden");
+      loading.classList.remove("hidden");
+
+      await new Promise((resolve) => setTimeout(resolve, 1800));
+      const analise = gerarAnalise(curriculo, vaga);
+      renderResultado(analise);
+
+      loading.classList.add("hidden");
+      resultado.classList.remove("hidden");
+    });
+  </script>
+</body>
+</html>
